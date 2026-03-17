@@ -1,26 +1,40 @@
-# Financisto
+# Financisto – Personal Finance Tracker
 
-[![Build Status](https://app.bitrise.io/app/a4284a64a52e1063/status.svg?token=-JUe6I0K_79mxYjxLGp9BA&branch=master)](https://app.bitrise.io/app/a4284a64a52e1063)
-
-## About
-
-Financisto is an open-source personal finance tracker for Android platform.
+A personal finance tracker React SPA, converted from the original [Financisto Android app](https://code.google.com/p/financisto/).
 
 ## Features
 
-- Multiple accounts, multiple currencies 
-- Home currency and exchange rates
-- Transfers with downloadable rates
-- Scheduled & recurring transactions
-- Split transactions
-- Hierarchical categories with custom attributes
-- Recurring budgets
-- Projects and payees
-- Filtering and reporting
-- Cloud backup (Dropbox, Google Drive)
-- Automatic daily backups
-- QIF/CSV import/export
+- **Dashboard** – Account overview, monthly income/expense summary, recent transactions
+- **Transactions** – Full transaction ledger with filtering by type, account, category, and search
+- **Accounts** – Multiple accounts (Cash, Bank, Credit Card, Savings, Investment) with multi-currency support
+- **Categories** – Customizable income/expense categories with color coding
+- **Budgets** – Set spending limits per category with progress tracking (weekly / monthly / yearly)
+- **Reports** – Income vs Expenses bar chart, net balance trend line, expense-by-category pie chart
+- **Settings** – Default currency, date format, light/dark theme, data export/import (JSON backup)
+
+## Tech Stack
+
+- **React 19** – UI library
+- **Vite 8** – Build tool
+- **React Router 7** – Client-side routing
+- **Recharts** – Charts and data visualisation
+- **localStorage** – Browser-local data persistence (no backend required)
+
+## Getting Started
+
+```bash
+npm install
+npm run dev       # Development server at http://localhost:5173
+npm run build     # Production build → dist/
+npm run preview   # Preview production build
+npm run lint      # ESLint
+```
+
+## Data Persistence
+
+All data (accounts, transactions, categories, budgets, settings) is stored in `localStorage`.  
+Use **Settings → Export Backup** to download a JSON file and **Import Backup** to restore.
 
 ## License
 
-See [License](license.txt)
+GPL-2.0 – see [license.txt](license.txt)

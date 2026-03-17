@@ -1,1 +1,0 @@
-UPDATE locations SET title = name;

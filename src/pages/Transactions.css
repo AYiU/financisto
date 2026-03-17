@@ -1,0 +1,76 @@
+.transactions-page { max-width: 1100px; }
+
+.filters-bar {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+
+.filter-search { flex: 1; min-width: 160px; }
+
+.tx-table-wrapper {
+  background: var(--card-bg);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  overflow-x: auto;
+}
+
+.tx-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.tx-table th {
+  padding: 12px 16px;
+  text-align: left;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.tx-table td {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+
+.tx-table tr:last-child td { border-bottom: none; }
+
+.tx-table tr:hover td { background: var(--hover); }
+
+.text-right { text-align: right; }
+.fw-bold    { font-weight: 700; }
+
+.tx-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.tx-badge.income   { background: #d5f5e3; color: #1e8449; }
+.tx-badge.expense  { background: #fadbd8; color: #c0392b; }
+.tx-badge.transfer { background: #d6eaf8; color: #1a5276; }
+
+[data-theme="dark"] .tx-badge.income   { background: #1e3a2a; color: #58d68d; }
+[data-theme="dark"] .tx-badge.expense  { background: #3a1e1e; color: #ec7063; }
+[data-theme="dark"] .tx-badge.transfer { background: #1e2a3a; color: #5dade2; }
+
+.tx-note-cell {
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.row-actions {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+}
