@@ -1,28 +1,49 @@
-import { createContext, useContext, useReducer, useEffect } from 'react';
 import {
-  loadAccounts, saveAccounts,
+  createContext,
+  useContext,
+  useReducer,
+  useEffect,
+  type ReactNode,
+  type Dispatch,
+} from 'react';
+import type { AppState, AppAction, Account, Transaction, Category, Budget } from '../types';
+import {
+  loadAccounts,    saveAccounts,
   loadTransactions, saveTransactions,
-  loadCategories, saveCategories,
-  loadBudgets, saveBudgets,
-  loadSettings, saveSettings,
+  loadCategories,  saveCategories,
+  loadBudgets,     saveBudgets,
+  loadSettings,    saveSettings,
 } from '../utils/storage';
 import { generateId } from '../utils/helpers';
 
-const AppContext = createContext(null);
+interface AppContextValue {
+  state: AppState;
+  dispatch: Dispatch<AppAction>;
+}
 
-const initialState = {
-  accounts: loadAccounts(),
+const AppContext = createContext<AppContextValue | null>(null);
+
+const initialState: AppState = {
+  accounts:     loadAccounts(),
   transactions: loadTransactions(),
-  categories: loadCategories(),
-  budgets: loadBudgets(),
-  settings: loadSettings(),
+  categories:   loadCategories(),
+  budgets:      loadBudgets(),
+  settings:     loadSettings(),
 };
 
-function reducer(state, action) {
+function txDelta(type: Transaction['type'], amount: number): number {
+  if (type === 'INCOME'      ) return  amount;
+  if (type === 'EXPENSE'     ) return -amount;
+  if (type === 'TRANSFER_OUT') return -amount;
+  if (type === 'TRANSFER_IN' ) return  amount;
+  return 0;
+}
+
+function reducer(state: AppState, action: AppAction): AppState {
   switch (action.type) {
     // ── Accounts ──────────────────────────────────────────────────────────────
     case 'ADD_ACCOUNT': {
-      const account = { ...action.payload, id: generateId() };
+      const account: Account = { ...action.payload, id: generateId() };
       const accounts = [...state.accounts, account];
       saveAccounts(accounts);
       return { ...state, accounts };
@@ -42,22 +63,16 @@ function reducer(state, action) {
 
     // ── Transactions ──────────────────────────────────────────────────────────
     case 'ADD_TRANSACTION': {
-      const tx = { ...action.payload, id: generateId() };
+      const tx: Transaction = { ...action.payload, id: generateId() };
       const transactions = [tx, ...state.transactions];
       saveTransactions(transactions);
 
-      // Update account balance
       const accounts = state.accounts.map((acc) => {
         if (acc.id === tx.accountId) {
-          const delta =
-            tx.type === 'INCOME' ? tx.amount :
-            tx.type === 'EXPENSE' ? -tx.amount :
-            tx.type === 'TRANSFER_OUT' ? -tx.amount :
-            tx.type === 'TRANSFER_IN' ? tx.amount : 0;
-          return { ...acc, balance: (acc.balance || 0) + delta };
+          return { ...acc, balance: acc.balance + txDelta(tx.type, tx.amount) };
         }
         if (tx.type === 'TRANSFER_OUT' && acc.id === tx.toAccountId) {
-          return { ...acc, balance: (acc.balance || 0) + tx.amount };
+          return { ...acc, balance: acc.balance + tx.amount };
         }
         return acc;
       });
@@ -66,39 +81,20 @@ function reducer(state, action) {
     }
     case 'UPDATE_TRANSACTION': {
       const oldTx = state.transactions.find((t) => t.id === action.payload.id);
-      const newTx = { ...action.payload };
+      const newTx: Transaction = { ...action.payload };
       const transactions = state.transactions.map((t) =>
         t.id === newTx.id ? newTx : t
       );
       saveTransactions(transactions);
 
-      // Revert old balance effect, apply new
       const accounts = state.accounts.map((acc) => {
-        let balance = acc.balance || 0;
+        let balance = acc.balance;
         if (oldTx) {
-          if (acc.id === oldTx.accountId) {
-            const oldDelta =
-              oldTx.type === 'INCOME' ? oldTx.amount :
-              oldTx.type === 'EXPENSE' ? -oldTx.amount :
-              oldTx.type === 'TRANSFER_OUT' ? -oldTx.amount :
-              oldTx.type === 'TRANSFER_IN' ? oldTx.amount : 0;
-            balance -= oldDelta;
-          }
-          if (oldTx.type === 'TRANSFER_OUT' && acc.id === oldTx.toAccountId) {
-            balance -= oldTx.amount;
-          }
+          if (acc.id === oldTx.accountId) balance -= txDelta(oldTx.type, oldTx.amount);
+          if (oldTx.type === 'TRANSFER_OUT' && acc.id === oldTx.toAccountId) balance -= oldTx.amount;
         }
-        if (acc.id === newTx.accountId) {
-          const newDelta =
-            newTx.type === 'INCOME' ? newTx.amount :
-            newTx.type === 'EXPENSE' ? -newTx.amount :
-            newTx.type === 'TRANSFER_OUT' ? -newTx.amount :
-            newTx.type === 'TRANSFER_IN' ? newTx.amount : 0;
-          balance += newDelta;
-        }
-        if (newTx.type === 'TRANSFER_OUT' && acc.id === newTx.toAccountId) {
-          balance += newTx.amount;
-        }
+        if (acc.id === newTx.accountId) balance += txDelta(newTx.type, newTx.amount);
+        if (newTx.type === 'TRANSFER_OUT' && acc.id === newTx.toAccountId) balance += newTx.amount;
         return { ...acc, balance };
       });
       saveAccounts(accounts);
@@ -109,21 +105,11 @@ function reducer(state, action) {
       const transactions = state.transactions.filter((t) => t.id !== action.payload);
       saveTransactions(transactions);
 
-      // Revert balance
       const accounts = state.accounts.map((acc) => {
         if (!tx) return acc;
-        let balance = acc.balance || 0;
-        if (acc.id === tx.accountId) {
-          const delta =
-            tx.type === 'INCOME' ? tx.amount :
-            tx.type === 'EXPENSE' ? -tx.amount :
-            tx.type === 'TRANSFER_OUT' ? -tx.amount :
-            tx.type === 'TRANSFER_IN' ? tx.amount : 0;
-          balance -= delta;
-        }
-        if (tx.type === 'TRANSFER_OUT' && acc.id === tx.toAccountId) {
-          balance -= tx.amount;
-        }
+        let balance = acc.balance;
+        if (acc.id === tx.accountId) balance -= txDelta(tx.type, tx.amount);
+        if (tx.type === 'TRANSFER_OUT' && acc.id === tx.toAccountId) balance -= tx.amount;
         return { ...acc, balance };
       });
       saveAccounts(accounts);
@@ -132,7 +118,7 @@ function reducer(state, action) {
 
     // ── Categories ────────────────────────────────────────────────────────────
     case 'ADD_CATEGORY': {
-      const category = { ...action.payload, id: generateId() };
+      const category: Category = { ...action.payload, id: generateId() };
       const categories = [...state.categories, category];
       saveCategories(categories);
       return { ...state, categories };
@@ -154,7 +140,7 @@ function reducer(state, action) {
 
     // ── Budgets ───────────────────────────────────────────────────────────────
     case 'ADD_BUDGET': {
-      const budget = { ...action.payload, id: generateId() };
+      const budget: Budget = { ...action.payload, id: generateId() };
       const budgets = [...state.budgets, budget];
       saveBudgets(budgets);
       return { ...state, budgets };
@@ -178,18 +164,14 @@ function reducer(state, action) {
       saveSettings(settings);
       return { ...state, settings };
     }
-
-    default:
-      return state;
   }
 }
 
-export function AppProvider({ children }) {
+export function AppProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, initialState);
 
-  // Apply theme from settings
   useEffect(() => {
-    document.documentElement.setAttribute('data-theme', state.settings.theme || 'light');
+    document.documentElement.setAttribute('data-theme', state.settings.theme);
   }, [state.settings.theme]);
 
   return (
@@ -200,7 +182,7 @@ export function AppProvider({ children }) {
 }
 
 // eslint-disable-next-line react-refresh/only-export-components
-export function useApp() {
+export function useApp(): AppContextValue {
   const ctx = useContext(AppContext);
   if (!ctx) throw new Error('useApp must be used within AppProvider');
   return ctx;

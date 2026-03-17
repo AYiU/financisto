@@ -1,17 +1,28 @@
+import { type ReactNode } from 'react';
 import { NavLink } from 'react-router-dom';
 import './Layout.css';
 
-const navItems = [
-  { to: '/', label: 'Dashboard', icon: '🏠' },
+interface NavItem {
+  to: string;
+  label: string;
+  icon: string;
+}
+
+const navItems: NavItem[] = [
+  { to: '/',             label: 'Dashboard',   icon: '🏠' },
   { to: '/transactions', label: 'Transactions', icon: '💳' },
-  { to: '/accounts', label: 'Accounts', icon: '🏦' },
-  { to: '/categories', label: 'Categories', icon: '🏷️' },
-  { to: '/budgets', label: 'Budgets', icon: '📊' },
-  { to: '/reports', label: 'Reports', icon: '📈' },
-  { to: '/settings', label: 'Settings', icon: '⚙️' },
+  { to: '/accounts',     label: 'Accounts',     icon: '🏦' },
+  { to: '/categories',   label: 'Categories',   icon: '🏷️' },
+  { to: '/budgets',      label: 'Budgets',      icon: '📊' },
+  { to: '/reports',      label: 'Reports',      icon: '📈' },
+  { to: '/settings',     label: 'Settings',     icon: '⚙️' },
 ];
 
-export default function Layout({ children }) {
+interface LayoutProps {
+  children: ReactNode;
+}
+
+export default function Layout({ children }: LayoutProps) {
   return (
     <div className="layout">
       <nav className="sidebar">

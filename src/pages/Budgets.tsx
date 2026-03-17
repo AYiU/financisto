@@ -1,26 +1,44 @@
-import { useState } from 'react';
+import { useState, type Dispatch } from 'react';
 import { useApp } from '../context/AppContext';
 import { formatAmount } from '../utils/helpers';
+import type { Budget, BudgetPeriod, Category, AppAction } from '../types';
 import Modal from '../components/Modal';
 import './Budgets.css';
 
-const PERIODS = ['MONTHLY', 'WEEKLY', 'YEARLY'];
+const PERIODS: BudgetPeriod[] = ['MONTHLY', 'WEEKLY', 'YEARLY'];
+
+type BudgetModal =
+  | { mode: 'add' }
+  | { mode: 'edit'; budget: Budget };
+
+function periodStart(period: BudgetPeriod, now: Date): string {
+  const y = now.getFullYear();
+  const m = now.getMonth();
+  const d = now.getDate();
+  if (period === 'WEEKLY') {
+    const day = now.getDay();
+    return new Date(y, m, d - day).toISOString().slice(0, 10);
+  }
+  if (period === 'YEARLY') return `${y}-01-01`;
+  return new Date(y, m, 1).toISOString().slice(0, 10);
+}
 
 export default function Budgets() {
   const { state, dispatch } = useApp();
   const { budgets, categories, transactions, settings } = state;
-  const [modal, setModal] = useState(null);
-  const [deleteConfirm, setDeleteConfirm] = useState(null);
+
+  const [modal, setModal]                 = useState<BudgetModal | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<Budget | null>(null);
 
   const now = new Date();
 
-  function getSpent(budget) {
+  function getSpent(budget: Budget): number {
     const startDate = periodStart(budget.period, now);
     return transactions
       .filter((t) => {
         if (t.type !== 'EXPENSE') return false;
-        if (t.date < startDate) return false;
-        if (budget.categoryIds && budget.categoryIds.length > 0) {
+        if (t.date < startDate)   return false;
+        if (budget.categoryIds.length > 0 && t.categoryId !== null) {
           if (!budget.categoryIds.includes(t.categoryId)) return false;
         }
         return true;
@@ -29,6 +47,7 @@ export default function Budgets() {
   }
 
   function confirmDelete() {
+    if (!deleteConfirm) return;
     dispatch({ type: 'DELETE_BUDGET', payload: deleteConfirm.id });
     setDeleteConfirm(null);
   }
@@ -58,8 +77,8 @@ export default function Budgets() {
         <div className="budget-list">
           {budgets.map((budget) => {
             const spent = getSpent(budget);
-            const pct = budget.amount > 0 ? Math.min((spent / budget.amount) * 100, 100) : 0;
-            const over = spent > budget.amount;
+            const pct   = budget.amount > 0 ? Math.min((spent / budget.amount) * 100, 100) : 0;
+            const over  = spent > budget.amount;
             return (
               <div key={budget.id} className="budget-card">
                 <div className="budget-card__header">
@@ -89,9 +108,7 @@ export default function Budgets() {
                     <span className={over ? 'expense' : ''}>
                       Spent: {formatAmount(spent, settings.currency)}
                     </span>
-                    <span>
-                      Budget: {formatAmount(budget.amount, settings.currency)}
-                    </span>
+                    <span>Budget: {formatAmount(budget.amount, settings.currency)}</span>
                   </div>
                 </div>
                 {over && (
@@ -106,10 +123,9 @@ export default function Budgets() {
       )}
 
       {modal && (
-        <BudgetModal
-          mode={modal.mode}
-          budget={modal.budget}
-          categories={categories.filter((c) => c.type === 'EXPENSE' || !c.type)}
+        <BudgetFormModal
+          modal={modal}
+          categories={categories.filter((c) => c.type === 'EXPENSE')}
           onClose={() => setModal(null)}
           dispatch={dispatch}
         />
@@ -128,33 +144,35 @@ export default function Budgets() {
   );
 }
 
-function periodStart(period, now) {
-  const y = now.getFullYear(), m = now.getMonth(), d = now.getDate();
-  if (period === 'WEEKLY') {
-    const day = now.getDay();
-    const start = new Date(y, m, d - day);
-    return start.toISOString().slice(0, 10);
-  }
-  if (period === 'YEARLY') {
-    return `${y}-01-01`;
-  }
-  // MONTHLY default
-  return new Date(y, m, 1).toISOString().slice(0, 10);
+interface BudgetFormModalProps {
+  modal: BudgetModal;
+  categories: Category[];
+  onClose: () => void;
+  dispatch: Dispatch<AppAction>;
 }
 
-function BudgetModal({ mode, budget, categories, onClose, dispatch }) {
-  const [form, setForm] = useState({
-    name: budget?.name || '',
-    amount: budget?.amount ?? '',
-    period: budget?.period || 'MONTHLY',
-    categoryIds: budget?.categoryIds || [],
+interface BudgetFormState {
+  name: string;
+  amount: string;
+  period: BudgetPeriod;
+  categoryIds: number[];
+}
+
+function BudgetFormModal({ modal, categories, onClose, dispatch }: BudgetFormModalProps) {
+  const budget = modal.mode === 'edit' ? modal.budget : undefined;
+
+  const [form, setForm] = useState<BudgetFormState>({
+    name:        budget?.name        ?? '',
+    amount:      budget?.amount      != null ? String(budget.amount) : '',
+    period:      budget?.period      ?? 'MONTHLY',
+    categoryIds: budget?.categoryIds ?? [],
   });
 
-  function set(key, value) {
+  function set<K extends keyof BudgetFormState>(key: K, value: BudgetFormState[K]) {
     setForm((f) => ({ ...f, [key]: value }));
   }
 
-  function toggleCategory(id) {
+  function toggleCategory(id: number) {
     setForm((f) => {
       const ids = f.categoryIds.includes(id)
         ? f.categoryIds.filter((x) => x !== id)
@@ -163,19 +181,24 @@ function BudgetModal({ mode, budget, categories, onClose, dispatch }) {
     });
   }
 
-  function handleSubmit(e) {
+  function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const payload = { ...form, amount: parseFloat(form.amount) || 0 };
-    if (mode === 'add') {
+    const payload = {
+      name:        form.name,
+      period:      form.period,
+      categoryIds: form.categoryIds,
+      amount:      parseFloat(form.amount) || 0,
+    };
+    if (modal.mode === 'add') {
       dispatch({ type: 'ADD_BUDGET', payload });
     } else {
-      dispatch({ type: 'UPDATE_BUDGET', payload: { ...budget, ...payload } });
+      dispatch({ type: 'UPDATE_BUDGET', payload: { ...modal.budget, ...payload } });
     }
     onClose();
   }
 
   return (
-    <Modal title={mode === 'add' ? 'Add Budget' : 'Edit Budget'} onClose={onClose}>
+    <Modal title={modal.mode === 'add' ? 'Add Budget' : 'Edit Budget'} onClose={onClose}>
       <form onSubmit={handleSubmit} className="form">
         <div className="form-group">
           <label className="form-label">Budget Name *</label>
@@ -206,7 +229,7 @@ function BudgetModal({ mode, budget, categories, onClose, dispatch }) {
             <select
               className="form-control"
               value={form.period}
-              onChange={(e) => set('period', e.target.value)}
+              onChange={(e) => set('period', e.target.value as BudgetPeriod)}
             >
               {PERIODS.map((p) => <option key={p} value={p}>{p}</option>)}
             </select>
@@ -222,7 +245,7 @@ function BudgetModal({ mode, budget, categories, onClose, dispatch }) {
                   checked={form.categoryIds.includes(cat.id)}
                   onChange={() => toggleCategory(cat.id)}
                 />
-                <span className="cat-dot-sm" style={{ background: cat.color || '#999' }} />
+                <span className="cat-dot-sm" style={{ background: cat.color }} />
                 {cat.name}
               </label>
             ))}
@@ -231,7 +254,7 @@ function BudgetModal({ mode, budget, categories, onClose, dispatch }) {
         <div className="form-actions">
           <button type="button" className="btn btn-outline" onClick={onClose}>Cancel</button>
           <button type="submit" className="btn btn-primary">
-            {mode === 'add' ? 'Add Budget' : 'Save Changes'}
+            {modal.mode === 'add' ? 'Add Budget' : 'Save Changes'}
           </button>
         </div>
       </form>

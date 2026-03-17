@@ -1,36 +1,30 @@
-import { useState } from 'react';
+import { useState, type Dispatch } from 'react';
 import { useApp } from '../context/AppContext';
 import { formatAmount } from '../utils/helpers';
 import { CURRENCIES } from '../utils/helpers';
+import type { Account, AccountType, AppAction, Settings } from '../types';
 import Modal from '../components/Modal';
 import './Accounts.css';
 
-const ACCOUNT_TYPES = ['CASH', 'BANK', 'CREDIT_CARD', 'SAVINGS', 'INVESTMENT'];
+const ACCOUNT_TYPES: AccountType[] = ['CASH', 'BANK', 'CREDIT_CARD', 'SAVINGS', 'INVESTMENT'];
 
-const accountTypeIcons = {
+const accountTypeIcons: Record<AccountType, string> = {
   CASH: '💵', BANK: '🏦', CREDIT_CARD: '💳', SAVINGS: '🏧', INVESTMENT: '📈',
 };
+
+type AccountModal =
+  | { mode: 'add' }
+  | { mode: 'edit'; account: Account };
 
 export default function Accounts() {
   const { state, dispatch } = useApp();
   const { accounts, transactions, settings } = state;
 
-  const [modal, setModal] = useState(null); // null | { mode: 'add'|'edit', account?: object }
-  const [deleteConfirm, setDeleteConfirm] = useState(null);
-
-  function openAdd() {
-    setModal({ mode: 'add' });
-  }
-
-  function openEdit(account) {
-    setModal({ mode: 'edit', account });
-  }
-
-  function handleDelete(account) {
-    setDeleteConfirm(account);
-  }
+  const [modal, setModal]               = useState<AccountModal | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<Account | null>(null);
 
   function confirmDelete() {
+    if (!deleteConfirm) return;
     dispatch({ type: 'DELETE_ACCOUNT', payload: deleteConfirm.id });
     setDeleteConfirm(null);
   }
@@ -42,7 +36,9 @@ export default function Accounts() {
           <h1>Accounts</h1>
           <p className="page-subtitle">Manage your financial accounts</p>
         </div>
-        <button className="btn btn-primary" onClick={openAdd}>+ Add Account</button>
+        <button className="btn btn-primary" onClick={() => setModal({ mode: 'add' })}>
+          + Add Account
+        </button>
       </div>
 
       {accounts.length === 0 ? (
@@ -50,7 +46,9 @@ export default function Accounts() {
           <div className="empty-icon">🏦</div>
           <h3>No accounts yet</h3>
           <p>Add your first account to start tracking your finances</p>
-          <button className="btn btn-primary" onClick={openAdd}>Add Account</button>
+          <button className="btn btn-primary" onClick={() => setModal({ mode: 'add' })}>
+            Add Account
+          </button>
         </div>
       ) : (
         <div className="accounts-grid">
@@ -58,7 +56,7 @@ export default function Accounts() {
             const txCount = transactions.filter((t) => t.accountId === acc.id).length;
             return (
               <div key={acc.id} className="account-card">
-                <div className="account-card__icon">{accountTypeIcons[acc.type] || '💰'}</div>
+                <div className="account-card__icon">{accountTypeIcons[acc.type]}</div>
                 <div className="account-card__body">
                   <div className="account-card__name">{acc.name}</div>
                   <div className="account-card__meta">
@@ -67,11 +65,11 @@ export default function Accounts() {
                   {acc.note && <div className="account-card__note">{acc.note}</div>}
                 </div>
                 <div className={`account-card__balance ${acc.balance < 0 ? 'expense' : ''}`}>
-                  {formatAmount(acc.balance || 0, acc.currency)}
+                  {formatAmount(acc.balance, acc.currency)}
                 </div>
                 <div className="account-card__actions">
-                  <button className="btn btn-sm btn-outline" onClick={() => openEdit(acc)}>Edit</button>
-                  <button className="btn btn-sm btn-danger" onClick={() => handleDelete(acc)}>Delete</button>
+                  <button className="btn btn-sm btn-outline" onClick={() => setModal({ mode: 'edit', account: acc })}>Edit</button>
+                  <button className="btn btn-sm btn-danger" onClick={() => setDeleteConfirm(acc)}>Delete</button>
                 </div>
               </div>
             );
@@ -80,9 +78,8 @@ export default function Accounts() {
       )}
 
       {modal && (
-        <AccountModal
-          mode={modal.mode}
-          account={modal.account}
+        <AccountFormModal
+          modal={modal}
           onClose={() => setModal(null)}
           dispatch={dispatch}
           settings={settings}
@@ -103,32 +100,55 @@ export default function Accounts() {
   );
 }
 
-function AccountModal({ mode, account, onClose, dispatch, settings }) {
-  const [form, setForm] = useState({
-    name: account?.name || '',
-    type: account?.type || 'CASH',
-    currency: account?.currency || settings.currency || 'USD',
-    balance: account?.balance ?? 0,
-    note: account?.note || '',
+interface AccountFormModalProps {
+  modal: AccountModal;
+  onClose: () => void;
+  dispatch: Dispatch<AppAction>;
+  settings: Settings;
+}
+
+interface AccountFormState {
+  name: string;
+  type: AccountType;
+  currency: string;
+  balance: string;
+  note: string;
+}
+
+function AccountFormModal({ modal, onClose, dispatch, settings }: AccountFormModalProps) {
+  const account = modal.mode === 'edit' ? modal.account : undefined;
+
+  const [form, setForm] = useState<AccountFormState>({
+    name:     account?.name     ?? '',
+    type:     account?.type     ?? 'CASH',
+    currency: account?.currency ?? settings.currency,
+    balance:  account?.balance  != null ? String(account.balance) : '0',
+    note:     account?.note     ?? '',
   });
 
-  function set(key, value) {
+  function set<K extends keyof AccountFormState>(key: K, value: AccountFormState[K]) {
     setForm((f) => ({ ...f, [key]: value }));
   }
 
-  function handleSubmit(e) {
+  function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const payload = { ...form, balance: parseFloat(form.balance) || 0 };
-    if (mode === 'add') {
+    const payload = {
+      name:     form.name,
+      type:     form.type,
+      currency: form.currency,
+      balance:  parseFloat(form.balance) || 0,
+      note:     form.note,
+    };
+    if (modal.mode === 'add') {
       dispatch({ type: 'ADD_ACCOUNT', payload });
     } else {
-      dispatch({ type: 'UPDATE_ACCOUNT', payload: { ...account, ...payload } });
+      dispatch({ type: 'UPDATE_ACCOUNT', payload: { ...modal.account, ...payload } });
     }
     onClose();
   }
 
   return (
-    <Modal title={mode === 'add' ? 'Add Account' : 'Edit Account'} onClose={onClose}>
+    <Modal title={modal.mode === 'add' ? 'Add Account' : 'Edit Account'} onClose={onClose}>
       <form onSubmit={handleSubmit} className="form">
         <div className="form-group">
           <label className="form-label">Account Name *</label>
@@ -143,13 +163,23 @@ function AccountModal({ mode, account, onClose, dispatch, settings }) {
         <div className="form-row">
           <div className="form-group">
             <label className="form-label">Type</label>
-            <select className="form-control" value={form.type} onChange={(e) => set('type', e.target.value)}>
-              {ACCOUNT_TYPES.map((t) => <option key={t} value={t}>{t.replace('_', ' ')}</option>)}
+            <select
+              className="form-control"
+              value={form.type}
+              onChange={(e) => set('type', e.target.value as AccountType)}
+            >
+              {ACCOUNT_TYPES.map((t) => (
+                <option key={t} value={t}>{t.replace('_', ' ')}</option>
+              ))}
             </select>
           </div>
           <div className="form-group">
             <label className="form-label">Currency</label>
-            <select className="form-control" value={form.currency} onChange={(e) => set('currency', e.target.value)}>
+            <select
+              className="form-control"
+              value={form.currency}
+              onChange={(e) => set('currency', e.target.value)}
+            >
               {CURRENCIES.map((c) => (
                 <option key={c.code} value={c.code}>{c.code} – {c.name}</option>
               ))}
@@ -179,7 +209,7 @@ function AccountModal({ mode, account, onClose, dispatch, settings }) {
         <div className="form-actions">
           <button type="button" className="btn btn-outline" onClick={onClose}>Cancel</button>
           <button type="submit" className="btn btn-primary">
-            {mode === 'add' ? 'Add Account' : 'Save Changes'}
+            {modal.mode === 'add' ? 'Add Account' : 'Save Changes'}
           </button>
         </div>
       </form>

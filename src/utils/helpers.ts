@@ -1,32 +1,34 @@
-export const CURRENCIES = [
-  { code: 'USD', symbol: '$', name: 'US Dollar' },
-  { code: 'EUR', symbol: '€', name: 'Euro' },
-  { code: 'GBP', symbol: '£', name: 'British Pound' },
-  { code: 'JPY', symbol: '¥', name: 'Japanese Yen' },
+import type { Currency } from '../types';
+
+export const CURRENCIES: Currency[] = [
+  { code: 'USD', symbol: '$',  name: 'US Dollar' },
+  { code: 'EUR', symbol: '€',  name: 'Euro' },
+  { code: 'GBP', symbol: '£',  name: 'British Pound' },
+  { code: 'JPY', symbol: '¥',  name: 'Japanese Yen' },
   { code: 'CAD', symbol: 'C$', name: 'Canadian Dollar' },
   { code: 'AUD', symbol: 'A$', name: 'Australian Dollar' },
   { code: 'CHF', symbol: 'Fr', name: 'Swiss Franc' },
-  { code: 'CNY', symbol: '¥', name: 'Chinese Yuan' },
-  { code: 'INR', symbol: '₹', name: 'Indian Rupee' },
-  { code: 'MXN', symbol: '$', name: 'Mexican Peso' },
+  { code: 'CNY', symbol: '¥',  name: 'Chinese Yuan' },
+  { code: 'INR', symbol: '₹',  name: 'Indian Rupee' },
+  { code: 'MXN', symbol: '$',  name: 'Mexican Peso' },
   { code: 'BRL', symbol: 'R$', name: 'Brazilian Real' },
-  { code: 'RUB', symbol: '₽', name: 'Russian Ruble' },
-  { code: 'KRW', symbol: '₩', name: 'South Korean Won' },
+  { code: 'RUB', symbol: '₽',  name: 'Russian Ruble' },
+  { code: 'KRW', symbol: '₩',  name: 'South Korean Won' },
   { code: 'SGD', symbol: 'S$', name: 'Singapore Dollar' },
-  { code: 'HKD', symbol: 'HK$', name: 'Hong Kong Dollar' },
+  { code: 'HKD', symbol: 'HK$',name: 'Hong Kong Dollar' },
   { code: 'NOK', symbol: 'kr', name: 'Norwegian Krone' },
   { code: 'SEK', symbol: 'kr', name: 'Swedish Krona' },
   { code: 'DKK', symbol: 'kr', name: 'Danish Krone' },
   { code: 'PLN', symbol: 'zł', name: 'Polish Zloty' },
-  { code: 'UAH', symbol: '₴', name: 'Ukrainian Hryvnia' },
+  { code: 'UAH', symbol: '₴',  name: 'Ukrainian Hryvnia' },
 ];
 
-export function getCurrencySymbol(code) {
+export function getCurrencySymbol(code: string): string {
   const currency = CURRENCIES.find((c) => c.code === code);
   return currency ? currency.symbol : code;
 }
 
-export function formatAmount(amount, currencyCode = 'USD') {
+export function formatAmount(amount: number, currencyCode = 'USD'): string {
   const symbol = getCurrencySymbol(currencyCode);
   const absAmount = Math.abs(amount);
   const formatted = absAmount.toLocaleString('en-US', {
@@ -36,10 +38,10 @@ export function formatAmount(amount, currencyCode = 'USD') {
   return amount < 0 ? `-${symbol}${formatted}` : `${symbol}${formatted}`;
 }
 
-export function formatDate(dateStr, format = 'MM/DD/YYYY') {
+export function formatDate(dateStr: string, format = 'MM/DD/YYYY'): string {
   if (!dateStr) return '';
   const date = new Date(dateStr);
-  if (isNaN(date)) return dateStr;
+  if (isNaN(date.getTime())) return dateStr;
   const mm = String(date.getMonth() + 1).padStart(2, '0');
   const dd = String(date.getDate()).padStart(2, '0');
   const yyyy = date.getFullYear();
@@ -48,10 +50,10 @@ export function formatDate(dateStr, format = 'MM/DD/YYYY') {
   return `${mm}/${dd}/${yyyy}`;
 }
 
-export function todayISO() {
+export function todayISO(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-export function generateId() {
+export function generateId(): number {
   return Date.now() + Math.floor(Math.random() * 1000);
 }

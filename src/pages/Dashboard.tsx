@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { formatAmount } from '../utils/helpers';
+import type { Account, Transaction, AppState } from '../types';
 import TransactionForm from './TransactionForm';
 import './Dashboard.css';
 
@@ -10,18 +11,14 @@ export default function Dashboard() {
   const { accounts, transactions, settings } = state;
   const [showAddTx, setShowAddTx] = useState(false);
 
-  const totalBalance = accounts.reduce((sum, a) => sum + (a.balance || 0), 0);
+  const totalBalance = accounts.reduce((sum, a) => sum + a.balance, 0);
 
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
   const monthTxs = transactions.filter((t) => t.date >= monthStart);
 
-  const monthIncome = monthTxs
-    .filter((t) => t.type === 'INCOME')
-    .reduce((s, t) => s + t.amount, 0);
-  const monthExpense = monthTxs
-    .filter((t) => t.type === 'EXPENSE')
-    .reduce((s, t) => s + t.amount, 0);
+  const monthIncome  = monthTxs.filter((t) => t.type === 'INCOME').reduce((s, t) => s + t.amount, 0);
+  const monthExpense = monthTxs.filter((t) => t.type === 'EXPENSE').reduce((s, t) => s + t.amount, 0);
 
   const recentTxs = transactions.slice(0, 5);
 
@@ -37,14 +34,15 @@ export default function Dashboard() {
         </button>
       </div>
 
-      {/* Summary Cards */}
       <div className="summary-cards">
         <div className="summary-card summary-card--balance">
           <div className="summary-card__label">Total Balance</div>
           <div className="summary-card__value">
             {formatAmount(totalBalance, settings.currency)}
           </div>
-          <div className="summary-card__sub">{accounts.length} account{accounts.length !== 1 ? 's' : ''}</div>
+          <div className="summary-card__sub">
+            {accounts.length} account{accounts.length !== 1 ? 's' : ''}
+          </div>
         </div>
         <div className="summary-card summary-card--income">
           <div className="summary-card__label">This Month Income</div>
@@ -67,7 +65,6 @@ export default function Dashboard() {
       </div>
 
       <div className="dashboard-grid">
-        {/* Accounts */}
         <section className="card">
           <div className="card-header">
             <h2>Accounts</h2>
@@ -85,7 +82,7 @@ export default function Dashboard() {
                     <span className="account-type">{acc.type} · {acc.currency}</span>
                   </div>
                   <span className={`account-balance ${acc.balance < 0 ? 'expense' : ''}`}>
-                    {formatAmount(acc.balance || 0, acc.currency)}
+                    {formatAmount(acc.balance, acc.currency)}
                   </span>
                 </li>
               ))}
@@ -93,7 +90,6 @@ export default function Dashboard() {
           )}
         </section>
 
-        {/* Recent Transactions */}
         <section className="card">
           <div className="card-header">
             <h2>Recent Transactions</h2>
@@ -116,11 +112,16 @@ export default function Dashboard() {
   );
 }
 
-function RecentTxItem({ tx, state }) {
+interface RecentTxItemProps {
+  tx: Transaction;
+  state: AppState;
+}
+
+function RecentTxItem({ tx, state }: RecentTxItemProps) {
   const { accounts, categories, settings } = state;
-  const account = accounts.find((a) => a.id === tx.accountId);
+  const account  = accounts.find((a) => a.id === tx.accountId);
   const category = categories.find((c) => c.id === tx.categoryId);
-  const isIncome = tx.type === 'INCOME';
+  const isIncome   = tx.type === 'INCOME';
   const isTransfer = tx.type === 'TRANSFER_OUT' || tx.type === 'TRANSFER_IN';
 
   return (
@@ -132,13 +133,15 @@ function RecentTxItem({ tx, state }) {
       </div>
       <span className={`tx-amount ${isIncome ? 'income' : isTransfer ? 'transfer' : 'expense'}`}>
         {isIncome ? '+' : isTransfer ? '' : '-'}
-        {formatAmount(tx.amount, account?.currency || settings.currency)}
+        {formatAmount(tx.amount, account?.currency ?? settings.currency)}
       </span>
     </li>
   );
 }
 
-function accountIcon(type) {
-  const icons = { CASH: '💵', BANK: '🏦', CREDIT_CARD: '💳', SAVINGS: '🏧', INVESTMENT: '📈' };
-  return icons[type] || '💰';
+function accountIcon(type: Account['type']): string {
+  const icons: Record<Account['type'], string> = {
+    CASH: '💵', BANK: '🏦', CREDIT_CARD: '💳', SAVINGS: '🏧', INVESTMENT: '📈',
+  };
+  return icons[type] ?? '💰';
 }

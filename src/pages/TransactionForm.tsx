@@ -1,45 +1,63 @@
 import { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { todayISO } from '../utils/helpers';
+import type { Transaction, TransactionType } from '../types';
 import Modal from '../components/Modal';
 
-export default function TransactionForm({ transaction, onClose }) {
+interface TransactionFormProps {
+  transaction?: Transaction;
+  onClose: () => void;
+}
+
+interface FormState {
+  type: TransactionType;
+  date: string;
+  amount: string;
+  accountId: string;
+  toAccountId: string;
+  categoryId: string;
+  note: string;
+}
+
+export default function TransactionForm({ transaction, onClose }: TransactionFormProps) {
   const { state, dispatch } = useApp();
   const { accounts, categories } = state;
   const isEdit = Boolean(transaction);
 
-  const [form, setForm] = useState({
-    type: transaction?.type || 'EXPENSE',
-    date: transaction?.date || todayISO(),
-    amount: transaction?.amount ?? '',
-    accountId: transaction?.accountId || accounts[0]?.id || '',
-    toAccountId: transaction?.toAccountId || '',
-    categoryId: transaction?.categoryId || '',
-    note: transaction?.note || '',
+  const [form, setForm] = useState<FormState>({
+    type:        transaction?.type        ?? 'EXPENSE',
+    date:        transaction?.date        ?? todayISO(),
+    amount:      transaction?.amount != null ? String(transaction.amount) : '',
+    accountId:   transaction?.accountId != null ? String(transaction.accountId) : String(accounts[0]?.id ?? ''),
+    toAccountId: transaction?.toAccountId != null ? String(transaction.toAccountId) : '',
+    categoryId:  transaction?.categoryId  != null ? String(transaction.categoryId)  : '',
+    note:        transaction?.note        ?? '',
   });
 
-  function set(key, value) {
+  function set<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((f) => ({ ...f, [key]: value }));
   }
 
-  const expenseCategories = categories.filter((c) => c.type === 'EXPENSE' || !c.type);
+  const expenseCategories = categories.filter((c) => c.type === 'EXPENSE');
   const incomeCategories  = categories.filter((c) => c.type === 'INCOME');
   const visibleCategories = form.type === 'INCOME' ? incomeCategories : expenseCategories;
 
-  function handleSubmit(e) {
+  function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const amount = parseFloat(form.amount);
     if (!amount || amount <= 0) return;
 
     const payload = {
-      ...form,
+      type:        form.type,
+      date:        form.date,
+      note:        form.note,
       amount,
-      accountId: Number(form.accountId),
+      accountId:   Number(form.accountId),
       toAccountId: form.type === 'TRANSFER_OUT' ? Number(form.toAccountId) : null,
-      categoryId: form.categoryId ? Number(form.categoryId) : null,
+      categoryId:  form.categoryId ? Number(form.categoryId) : null,
     };
 
-    if (isEdit) {
+    if (isEdit && transaction) {
       dispatch({ type: 'UPDATE_TRANSACTION', payload: { ...transaction, ...payload } });
     } else {
       dispatch({ type: 'ADD_TRANSACTION', payload });
@@ -47,18 +65,19 @@ export default function TransactionForm({ transaction, onClose }) {
     onClose();
   }
 
+  const typeOptions: { value: TransactionType; label: string }[] = [
+    { value: 'EXPENSE',      label: 'Expense' },
+    { value: 'INCOME',       label: 'Income' },
+    { value: 'TRANSFER_OUT', label: 'Transfer' },
+  ];
+
   return (
     <Modal title={isEdit ? 'Edit Transaction' : 'Add Transaction'} onClose={onClose}>
       <form onSubmit={handleSubmit} className="form">
-        {/* Type selector */}
         <div className="form-group">
           <label className="form-label">Type</label>
           <div className="type-tabs">
-            {[
-              { value: 'EXPENSE',      label: 'Expense' },
-              { value: 'INCOME',       label: 'Income' },
-              { value: 'TRANSFER_OUT', label: 'Transfer' },
-            ].map(({ value, label }) => (
+            {typeOptions.map(({ value, label }) => (
               <button
                 key={value}
                 type="button"
@@ -119,11 +138,11 @@ export default function TransactionForm({ transaction, onClose }) {
               className="form-control"
               value={form.toAccountId}
               onChange={(e) => set('toAccountId', e.target.value)}
-              required={form.type === 'TRANSFER_OUT'}
+              required
             >
               <option value="">Select target account...</option>
               {accounts
-                .filter((a) => String(a.id) !== String(form.accountId))
+                .filter((a) => String(a.id) !== form.accountId)
                 .map((a) => (
                   <option key={a.id} value={a.id}>{a.name} ({a.currency})</option>
                 ))}

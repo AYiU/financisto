@@ -1,21 +1,25 @@
 import { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { CURRENCIES } from '../utils/helpers';
+import type { Settings } from '../types';
 import './Settings.css';
 
-const DATE_FORMATS = ['MM/DD/YYYY', 'DD/MM/YYYY', 'YYYY-MM-DD'];
+type DateFormat = Settings['dateFormat'];
 
-export default function Settings() {
+const DATE_FORMATS: DateFormat[] = ['MM/DD/YYYY', 'DD/MM/YYYY', 'YYYY-MM-DD'];
+
+export default function SettingsPage() {
   const { state, dispatch } = useApp();
   const { settings } = state;
-  const [saved, setSaved] = useState(false);
-  const [form, setForm] = useState({ ...settings });
 
-  function set(key, value) {
+  const [saved, setSaved]   = useState(false);
+  const [form, setForm]     = useState<Settings>({ ...settings });
+
+  function set<K extends keyof Settings>(key: K, value: Settings[K]) {
     setForm((f) => ({ ...f, [key]: value }));
   }
 
-  function handleSave(e) {
+  function handleSave(e: React.FormEvent) {
     e.preventDefault();
     dispatch({ type: 'UPDATE_SETTINGS', payload: form });
     setSaved(true);
@@ -24,28 +28,28 @@ export default function Settings() {
 
   function handleExport() {
     const data = {
-      accounts: JSON.parse(localStorage.getItem('financisto_accounts') || '[]'),
-      transactions: JSON.parse(localStorage.getItem('financisto_transactions') || '[]'),
-      categories: JSON.parse(localStorage.getItem('financisto_categories') || '[]'),
-      budgets: JSON.parse(localStorage.getItem('financisto_budgets') || '[]'),
-      settings: JSON.parse(localStorage.getItem('financisto_settings') || '{}'),
+      accounts:     JSON.parse(localStorage.getItem('financisto_accounts')     ?? '[]'),
+      transactions: JSON.parse(localStorage.getItem('financisto_transactions') ?? '[]'),
+      categories:   JSON.parse(localStorage.getItem('financisto_categories')   ?? '[]'),
+      budgets:      JSON.parse(localStorage.getItem('financisto_budgets')      ?? '[]'),
+      settings:     JSON.parse(localStorage.getItem('financisto_settings')     ?? '{}'),
     };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
     a.download = `financisto-backup-${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(url);
   }
 
-  function handleImport(e) {
-    const file = e.target.files[0];
+  function handleImport(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
     reader.onload = (ev) => {
       try {
-        const data = JSON.parse(ev.target.result);
+        const data = JSON.parse(ev.target?.result as string) as Record<string, unknown>;
         if (data.accounts)     localStorage.setItem('financisto_accounts',     JSON.stringify(data.accounts));
         if (data.transactions) localStorage.setItem('financisto_transactions', JSON.stringify(data.transactions));
         if (data.categories)   localStorage.setItem('financisto_categories',   JSON.stringify(data.categories));
@@ -76,7 +80,6 @@ export default function Settings() {
       </div>
 
       <div className="settings-sections">
-        {/* Preferences */}
         <section className="settings-section">
           <h2>Preferences</h2>
           <form onSubmit={handleSave} className="form">
@@ -97,7 +100,7 @@ export default function Settings() {
               <select
                 className="form-control"
                 value={form.dateFormat}
-                onChange={(e) => set('dateFormat', e.target.value)}
+                onChange={(e) => set('dateFormat', e.target.value as DateFormat)}
               >
                 {DATE_FORMATS.map((f) => <option key={f} value={f}>{f}</option>)}
               </select>
@@ -105,7 +108,7 @@ export default function Settings() {
             <div className="form-group">
               <label className="form-label">Theme</label>
               <div className="type-tabs">
-                {['light', 'dark'].map((t) => (
+                {(['light', 'dark'] as Settings['theme'][]).map((t) => (
                   <button
                     key={t}
                     type="button"
@@ -124,7 +127,6 @@ export default function Settings() {
           </form>
         </section>
 
-        {/* Data Management */}
         <section className="settings-section">
           <h2>Data Management</h2>
           <div className="data-actions">
@@ -133,9 +135,7 @@ export default function Settings() {
                 <div className="da-title">Export Data</div>
                 <div className="da-desc">Download all your data as a JSON backup file</div>
               </div>
-              <button className="btn btn-outline" onClick={handleExport}>
-                ⬇ Export Backup
-              </button>
+              <button className="btn btn-outline" onClick={handleExport}>⬇ Export Backup</button>
             </div>
             <div className="data-action">
               <div>
@@ -152,14 +152,11 @@ export default function Settings() {
                 <div className="da-title">Reset All Data</div>
                 <div className="da-desc danger">Permanently delete all accounts, transactions, and settings</div>
               </div>
-              <button className="btn btn-danger" onClick={handleReset}>
-                🗑 Reset Data
-              </button>
+              <button className="btn btn-danger" onClick={handleReset}>🗑 Reset Data</button>
             </div>
           </div>
         </section>
 
-        {/* About */}
         <section className="settings-section">
           <h2>About</h2>
           <div className="about-card">

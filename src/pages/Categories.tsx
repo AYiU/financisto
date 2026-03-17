@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, type Dispatch } from 'react';
 import { useApp } from '../context/AppContext';
+import type { Category, CategoryType, AppAction } from '../types';
 import Modal from '../components/Modal';
 import './Categories.css';
 
@@ -9,23 +10,25 @@ const CATEGORY_COLORS = [
   '#607d8b', '#795548', '#ff5722', '#00bcd4', '#4caf50',
 ];
 
+type CatModal =
+  | { mode: 'add' }
+  | { mode: 'edit'; category: Category };
+
 export default function Categories() {
   const { state, dispatch } = useApp();
   const { categories, transactions } = state;
-  const [modal, setModal] = useState(null);
-  const [deleteConfirm, setDeleteConfirm] = useState(null);
+
+  const [modal, setModal]                 = useState<CatModal | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<Category | null>(null);
 
   const rootCategories = categories.filter((c) => !c.parentId);
 
-  function txCount(catId) {
+  function txCount(catId: number) {
     return transactions.filter((t) => t.categoryId === catId).length;
   }
 
-  function handleDelete(cat) {
-    setDeleteConfirm(cat);
-  }
-
   function confirmDelete() {
+    if (!deleteConfirm) return;
     dispatch({ type: 'DELETE_CATEGORY', payload: deleteConfirm.id });
     setDeleteConfirm(null);
   }
@@ -43,8 +46,8 @@ export default function Categories() {
       </div>
 
       <div className="category-groups">
-        {['EXPENSE', 'INCOME'].map((type) => {
-          const group = rootCategories.filter((c) => c.type === type || (!c.type && type === 'EXPENSE'));
+        {(['EXPENSE', 'INCOME'] as CategoryType[]).map((type) => {
+          const group = rootCategories.filter((c) => c.type === type);
           return (
             <div key={type} className="category-group">
               <h2 className={`group-title ${type.toLowerCase()}`}>
@@ -56,7 +59,7 @@ export default function Categories() {
                 <div className="cat-grid">
                   {group.map((cat) => (
                     <div key={cat.id} className="cat-card">
-                      <span className="cat-dot" style={{ background: cat.color || '#999' }} />
+                      <span className="cat-dot" style={{ background: cat.color }} />
                       <div className="cat-info">
                         <span className="cat-name">{cat.name}</span>
                         <span className="cat-count">{txCount(cat.id)} transactions</span>
@@ -68,7 +71,7 @@ export default function Categories() {
                         >Edit</button>
                         <button
                           className="btn btn-sm btn-danger"
-                          onClick={() => handleDelete(cat)}
+                          onClick={() => setDeleteConfirm(cat)}
                         >Delete</button>
                       </div>
                     </div>
@@ -81,9 +84,8 @@ export default function Categories() {
       </div>
 
       {modal && (
-        <CategoryModal
-          mode={modal.mode}
-          category={modal.category}
+        <CategoryFormModal
+          modal={modal}
           onClose={() => setModal(null)}
           dispatch={dispatch}
         />
@@ -103,30 +105,44 @@ export default function Categories() {
   );
 }
 
-function CategoryModal({ mode, category, onClose, dispatch }) {
-  const [form, setForm] = useState({
-    name: category?.name || '',
-    type: category?.type || 'EXPENSE',
-    color: category?.color || CATEGORY_COLORS[0],
+interface CategoryFormModalProps {
+  modal: CatModal;
+  onClose: () => void;
+  dispatch: Dispatch<AppAction>;
+}
+
+interface CatFormState {
+  name: string;
+  type: CategoryType;
+  color: string;
+}
+
+function CategoryFormModal({ modal, onClose, dispatch }: CategoryFormModalProps) {
+  const category = modal.mode === 'edit' ? modal.category : undefined;
+
+  const [form, setForm] = useState<CatFormState>({
+    name:  category?.name  ?? '',
+    type:  category?.type  ?? 'EXPENSE',
+    color: category?.color ?? CATEGORY_COLORS[0],
   });
 
-  function set(key, value) {
+  function set<K extends keyof CatFormState>(key: K, value: CatFormState[K]) {
     setForm((f) => ({ ...f, [key]: value }));
   }
 
-  function handleSubmit(e) {
+  function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const payload = { ...form, parentId: null };
-    if (mode === 'add') {
+    const payload = { ...form, parentId: null as null };
+    if (modal.mode === 'add') {
       dispatch({ type: 'ADD_CATEGORY', payload });
     } else {
-      dispatch({ type: 'UPDATE_CATEGORY', payload: { ...category, ...payload } });
+      dispatch({ type: 'UPDATE_CATEGORY', payload: { ...modal.category, ...payload } });
     }
     onClose();
   }
 
   return (
-    <Modal title={mode === 'add' ? 'Add Category' : 'Edit Category'} onClose={onClose}>
+    <Modal title={modal.mode === 'add' ? 'Add Category' : 'Edit Category'} onClose={onClose}>
       <form onSubmit={handleSubmit} className="form">
         <div className="form-group">
           <label className="form-label">Name *</label>
@@ -141,7 +157,7 @@ function CategoryModal({ mode, category, onClose, dispatch }) {
         <div className="form-group">
           <label className="form-label">Type</label>
           <div className="type-tabs">
-            {['EXPENSE', 'INCOME'].map((t) => (
+            {(['EXPENSE', 'INCOME'] as CategoryType[]).map((t) => (
               <button
                 key={t}
                 type="button"
@@ -171,7 +187,7 @@ function CategoryModal({ mode, category, onClose, dispatch }) {
         <div className="form-actions">
           <button type="button" className="btn btn-outline" onClick={onClose}>Cancel</button>
           <button type="submit" className="btn btn-primary">
-            {mode === 'add' ? 'Add Category' : 'Save Changes'}
+            {modal.mode === 'add' ? 'Add Category' : 'Save Changes'}
           </button>
         </div>
       </form>
