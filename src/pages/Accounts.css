@@ -1,0 +1,75 @@
+.accounts-page { max-width: 900px; }
+
+.accounts-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.account-card {
+  background: var(--card-bg);
+  border-radius: 12px;
+  padding: 18px 20px;
+  box-shadow: var(--shadow);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.account-card__icon { font-size: 1.8rem; }
+
+.account-card__body {
+  flex: 1;
+  min-width: 0;
+}
+
+.account-card__name {
+  font-weight: 700;
+  font-size: 1rem;
+}
+
+.account-card__meta {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.account-card__note {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  margin-top: 4px;
+  font-style: italic;
+}
+
+.account-card__balance {
+  font-weight: 700;
+  font-size: 1.2rem;
+  min-width: 100px;
+  text-align: right;
+}
+
+.account-card__actions {
+  display: flex;
+  gap: 8px;
+}
+
+.empty-page {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--text-muted);
+}
+
+.empty-icon {
+  font-size: 3rem;
+  margin-bottom: 12px;
+}
+
+.empty-page h3 {
+  color: var(--text);
+  margin: 0 0 8px;
+}
+
+.empty-page p {
+  margin: 0 0 20px;
+}

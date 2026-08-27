@@ -1,3 +1,4 @@
+# Android build artifacts
 *.iml
 .gradle
 .idea
@@ -8,3 +9,12 @@
 /gen
 *.apk
 _prepare_dropbox_keys.sh
+
+# Node / React SPA
+node_modules
+dist
+dist-ssr
+*.local
+.env
+.env.local
+.env.*.local
